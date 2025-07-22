@@ -1,1 +1,108 @@
+document.addEventListener("DOMContentLoaded", () => {
+  const container = document.getElementById("malla-container");
+  const estadoRamos = new Set(JSON.parse(localStorage.getItem("estadoRamos") || "[]"));
+
+  const materiasMap = {};
+  mallaData.forEach(({ materias }) => materias.forEach(m => materiasMap[m.id] = m));
+
+  function clasificarRamo(nombre) {
+    const n = nombre.toLowerCase();
+    if (n.includes("penal") || n.includes("delito")) return "#ffccd5";
+    if (n.includes("civil") || n.includes("obligac") || n.includes("sucesorio")) return "#ffe5ec";
+    if (n.includes("constitucional") || n.includes("internacional") || n.includes("administrativo")) return "#ffb3c1";
+    if (n.includes("procesal") || n.includes("procedim")) return "#ff8fa3";
+    if (n.includes("trabajo") || n.includes("seguridad social")) return "#ff4d6d";
+    if (n.includes("mercantil") || n.includes("societario") || n.includes("tributario") || n.includes("concursal")) return "#f09aa8";
+    if (n.includes("electiva")) return "#cce5ff";
+    if (n.includes("expresión") || n.includes("económico") || n.includes("investigación") || n.includes("filosofía")) return "#e2e3e5";
+    return "#fff";
+  }
+
+  function guardarEstado() {
+    localStorage.setItem("estadoRamos", JSON.stringify([...estadoRamos]));
+  }
+
+  function calcularCreditos() {
+    let total = 0;
+    estadoRamos.forEach(id => {
+      const ramo = materiasMap[id];
+      if (ramo) total += ramo.creditos || 0;
+    });
+    return total;
+  }
+
+  function renderMalla(filtro = "") {
+    container.innerHTML = "";
+    const porAño = {};
+
+    mallaData.forEach(({ año, periodo, materias }) => {
+      if (!porAño[año]) porAño[año] = [];
+      porAño[año].push({ periodo, materias });
+    });
+
+    Object.keys(porAño).forEach(año => {
+      const anioDiv = document.createElement("div");
+      anioDiv.className = "anio";
+      anioDiv.innerHTML = `<h2>Año ${año}</h2>`;
+
+      porAño[año].forEach(({ periodo, materias }) => {
+        const periodoDiv = document.createElement("div");
+        periodoDiv.className = "periodo";
+        const titulo = document.createElement("h3");
+        titulo.textContent = periodo;
+        periodoDiv.appendChild(titulo);
+
+        materias.forEach(m => {
+          if (!m.nombre.toLowerCase().includes(filtro)) return;
+
+          const ramo = document.createElement("div");
+          ramo.className = "ramo";
+          ramo.textContent = m.nombre;
+          ramo.dataset.id = m.id;
+          ramo.style.backgroundColor = clasificarRamo(m.nombre);
+
+          if (estadoRamos.has(m.id)) {
+            ramo.classList.add("aprobado");
+          } else if (m.requisitos.length > 0 && !m.requisitos.every(req => estadoRamos.has(req))) {
+            ramo.style.opacity = 0.4;
+            ramo.style.pointerEvents = "none";
+          }
+
+          ramo.addEventListener("click", () => {
+            if (estadoRamos.has(m.id)) {
+              estadoRamos.delete(m.id);
+            } else {
+              estadoRamos.add(m.id);
+            }
+            guardarEstado();
+            renderMalla(filtro);
+          });
+
+          periodoDiv.appendChild(ramo);
+        });
+
+        anioDiv.appendChild(periodoDiv);
+      });
+
+      container.appendChild(anioDiv);
+    });
+
+    const totalDiv = document.createElement("div");
+    totalDiv.innerHTML = `<h3>Total Créditos Aprobados: ${calcularCreditos()}</h3>`;
+    container.appendChild(totalDiv);
+  }
+
+  // Crear buscador
+  const buscador = document.createElement("input");
+  buscador.placeholder = "Buscar ramo...";
+  buscador.style.marginBottom = "20px";
+  buscador.style.padding = "10px";
+  buscador.style.width = "100%";
+  buscador.addEventListener("input", () => {
+    renderMalla(buscador.value.toLowerCase());
+  });
+  document.body.insertBefore(buscador, container);
+
+  renderMalla();
+});
 
